@@ -20,7 +20,7 @@ Abrir `http://localhost:3000` no navegador e escanear o QR Code.
 - **Modo Manual**: escreve uma mensagem e envia pra todos os números
 - **Modo Rotação**: alterna automaticamente entre os modelos salvos (1 msg por cliente)
 - **Modo Sequencial**: envia TODAS as mensagens dos modelos pra cada cliente em ordem
-- **Modelos de mensagem**: cria/salva/exclui templates (salvos no localStorage do navegador)
+- **Modelos de mensagem**: cria/edita/exclui templates (salvos no localStorage do navegador)
 - **Intervalo configurável**: delay entre mensagens (recomendado 30s pra evitar ban)
 - **Barra de progresso**: mostra envio em tempo real via streaming
 

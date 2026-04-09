@@ -83,12 +83,13 @@
       font-size: 10px; padding: 2px 8px; border-radius: 10px; margin-bottom: 6px; font-weight: 700;
     }
     .template-card p { color: #ccc; margin: 0; }
-    .template-card .btn-delete {
-      position: absolute; top: 8px; right: 8px; background: none; border: none;
-      color: #ff5555; font-size: 16px; cursor: pointer; padding: 0 4px; opacity: 0;
-      transition: opacity 0.2s;
+    .template-card .card-actions { opacity: 0; transition: opacity 0.2s; }
+    .template-card:hover .card-actions { opacity: 1; }
+    .template-card .btn-delete, .template-card .btn-edit {
+      background: none; border: none; font-size: 15px; cursor: pointer; padding: 0 4px;
     }
-    .template-card:hover .btn-delete { opacity: 1; }
+    .template-card .btn-delete { color: #ff5555; }
+    .template-card .btn-edit { color: #ffa500; }
 
     .add-template {
       background: #0a1628; border: 1px dashed #2a3a5c; border-radius: 8px;
@@ -228,8 +229,11 @@
         return;
       }
       templateList.innerHTML = templates.map((t, i) => `
-        <div class="template-card" onclick="useTemplate(${i})">
-          <button class="btn-delete" onclick="event.stopPropagation(); deletarTemplate(${i})" title="Excluir">x</button>
+        <div class="template-card" onclick="useTemplate(${i})" id="tpl-card-${i}">
+          <div style="position:absolute;top:8px;right:8px;display:flex;gap:6px;" class="card-actions">
+            <button class="btn-edit" onclick="event.stopPropagation(); editarTemplate(${i})" title="Editar">&#9998;</button>
+            <button class="btn-delete" onclick="event.stopPropagation(); deletarTemplate(${i})" title="Excluir">x</button>
+          </div>
           <span class="tag">${escapeHtml(t.nome)}</span>
           <p>${escapeHtml(t.texto)}</p>
         </div>
@@ -258,6 +262,29 @@
       document.getElementById('tpl-nome').value = '';
       document.getElementById('tpl-texto').value = '';
       addForm.style.display = 'none';
+    }
+    function editarTemplate(index) {
+      const templates = getTemplates();
+      const t = templates[index];
+      const card = document.getElementById('tpl-card-' + index);
+      card.onclick = null;
+      card.innerHTML = `
+        <input type="text" id="edit-nome-${index}" value="${escapeHtml(t.nome)}" style="margin-bottom:6px;font-size:13px;padding:8px;">
+        <textarea id="edit-texto-${index}" style="height:70px;font-size:13px;padding:8px;">${escapeHtml(t.texto)}</textarea>
+        <div style="display:flex;gap:6px;">
+          <button class="btn-add" onclick="salvarEdicao(${index})" style="flex:1;">Salvar</button>
+          <button class="btn-add" onclick="renderTemplates()" style="flex:1;background:#555;color:#ccc;">Cancelar</button>
+        </div>
+      `;
+    }
+    function salvarEdicao(index) {
+      const nome = document.getElementById('edit-nome-' + index).value.trim();
+      const texto = document.getElementById('edit-texto-' + index).value.trim();
+      if (!nome || !texto) { alert('Preencha o nome e o texto!'); return; }
+      const templates = getTemplates();
+      templates[index] = { nome, texto };
+      saveTemplates(templates);
+      renderTemplates();
     }
     function deletarTemplate(index) {
       const templates = getTemplates();
