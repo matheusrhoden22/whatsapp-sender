@@ -36,11 +36,32 @@ client.on('disconnected', () => {
 
 client.initialize();
 
+let pausado = false;
+let cancelado = false;
+
 app.get('/api/status', (req, res) => {
   res.json({ ready: isReady, qr: qrCodeData });
 });
 
+app.post('/api/pausar', (req, res) => {
+  pausado = true;
+  res.json({ pausado: true });
+});
+
+app.post('/api/retomar', (req, res) => {
+  pausado = false;
+  res.json({ pausado: false });
+});
+
+app.post('/api/cancelar', (req, res) => {
+  cancelado = true;
+  pausado = false;
+  res.json({ cancelado: true });
+});
+
 app.post('/api/enviar', async (req, res) => {
+  cancelado = false;
+  pausado = false;
   if (!isReady) {
     return res.status(400).json({ error: 'WhatsApp não está conectado.' });
   }
@@ -98,9 +119,19 @@ app.post('/api/enviar', async (req, res) => {
 
       // Função para substituir variáveis
       function personalize(msg) {
-        return msg
+        let result = msg
           .replace(/\{nome\}/gi, nome)
           .replace(/\{empresa\}/gi, empresa);
+        // Limpa espaços vazios: "Boa tarde, !" -> "Boa tarde!"
+        result = result.replace(/,\s*!/g, '!');
+        result = result.replace(/,\s*\./g, '.');
+        result = result.replace(/,\s*\?/g, '?');
+        // Remove espaços duplos
+        result = result.replace(/  +/g, ' ');
+        // Remove "da **" ou "da " vazio
+        result = result.replace(/\bda\s+\*{0,2}\s*\*{0,2}\s+/g, ' ');
+        result = result.replace(/\bdo\s+\*{0,2}\s*\*{0,2}\s+/g, ' ');
+        return result.trim();
       }
 
       if (modo === 'sequencial') {
@@ -146,9 +177,22 @@ app.post('/api/enviar', async (req, res) => {
       }) + '\n');
     }
 
-    // Delay entre clientes
+    // Verificar cancelamento
+    if (cancelado) {
+      res.write(JSON.stringify({
+        tipo: 'fim', total: totalEnvios, enviados, cancelado: true
+      }) + '\n');
+      res.end();
+      return;
+    }
+
+    // Delay entre clientes (com verificação de pausa)
     if (i < lista.length - 1) {
       await new Promise(resolve => setTimeout(resolve, delayMs));
+      // Espera enquanto pausado
+      while (pausado && !cancelado) {
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
     }
   }
 

@@ -448,11 +448,13 @@
       if (!enviando) return;
       if (pausado) {
         pausado = false;
+        fetch('/api/retomar', { method: 'POST' });
         btn.textContent = 'Pausar';
         btn.classList.remove('resumir');
         progressText.textContent = progressText.textContent.replace(' (PAUSADO)', '');
       } else {
         pausado = true;
+        fetch('/api/pausar', { method: 'POST' });
         btn.textContent = 'Retomar';
         btn.classList.add('resumir');
         progressText.textContent += ' (PAUSADO)';
