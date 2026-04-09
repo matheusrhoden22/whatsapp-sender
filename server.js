@@ -53,10 +53,19 @@ app.post('/api/enviar', async (req, res) => {
     return res.status(400).json({ error: 'Números e mensagens são obrigatórios.' });
   }
 
+  // Parse: "numero | nome | empresa" ou só "numero"
   const lista = numeros
     .split('\n')
-    .map(n => n.replace(/\D/g, '').trim())
-    .filter(n => n.length >= 10);
+    .map(line => {
+      const parts = line.split('|').map(p => p.trim());
+      const num = parts[0].replace(/\D/g, '').trim();
+      return {
+        numero: num,
+        nome: parts[1] || '',
+        empresa: parts[2] || ''
+      };
+    })
+    .filter(item => item.numero.length >= 10);
 
   res.setHeader('Content-Type', 'text/plain; charset=utf-8');
   res.setHeader('Transfer-Encoding', 'chunked');
@@ -66,7 +75,7 @@ app.post('/api/enviar', async (req, res) => {
   let envioAtual = 0;
 
   for (let i = 0; i < lista.length; i++) {
-    const numero = lista[i];
+    const { numero, nome, empresa } = lista[i];
     const formatado = numero.length <= 11 ? `55${numero}` : numero;
 
     try {
@@ -87,12 +96,18 @@ app.post('/api/enviar', async (req, res) => {
         continue;
       }
 
+      // Função para substituir variáveis
+      function personalize(msg) {
+        return msg
+          .replace(/\{nome\}/gi, nome)
+          .replace(/\{empresa\}/gi, empresa);
+      }
+
       if (modo === 'sequencial') {
-        // Envia todas as mensagens para este cliente
         for (let m = 0; m < mensagens.length; m++) {
           envioAtual++;
           try {
-            await client.sendMessage(numberId._serialized, mensagens[m]);
+            await client.sendMessage(numberId._serialized, personalize(mensagens[m]));
             enviados++;
             res.write(JSON.stringify({
               tipo: 'progresso', atual: envioAtual, total: totalEnvios,
@@ -114,7 +129,7 @@ app.post('/api/enviar', async (req, res) => {
       } else {
         // Rotacao: 1 mensagem por cliente
         envioAtual++;
-        const mensagem = mensagens[i % mensagens.length];
+        const mensagem = personalize(mensagens[i % mensagens.length]);
         await client.sendMessage(numberId._serialized, mensagem);
         enviados++;
         res.write(JSON.stringify({

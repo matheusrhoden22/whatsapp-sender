@@ -185,8 +185,8 @@
       <h2>Enviar Mensagens</h2>
       <form id="form-enviar">
         <label for="numeros">Numeros (um por linha)</label>
-        <textarea id="numeros" placeholder="44999998888&#10;44988887777&#10;5544977776666"></textarea>
-        <p class="hint">DDD + numero. Com ou sem 55 na frente.</p>
+        <textarea id="numeros" placeholder="45999998888 | Fabiano | Fabiano Moveis&#10;44988887777 | Maria&#10;5544977776666"></textarea>
+        <p class="hint">Formato: numero | nome | empresa (nome e empresa sao opcionais). Use {nome} e {empresa} nos modelos.</p>
 
         <!-- Modo de envio -->
         <label style="margin-bottom:8px;">Modo de envio</label>
@@ -417,7 +417,7 @@
     // --- Status ---
     function checkStatus() {
       console.log('Verificando status...');
-      fetch('http://localhost:3000/api/status')
+      fetch('/api/status')
         .then(function(r) { console.log('Response:', r.status); return r.json(); })
         .then(function(data) {
           console.log('Data:', data.ready, !!data.qr);
