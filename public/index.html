@@ -138,6 +138,31 @@
     }
     .progress-text { font-size: 12px; color: #888; text-align: center; margin-bottom: 8px; display: none; }
 
+    .btn-row { display: flex; gap: 8px; }
+    .btn-row .btn-main { flex: 1; }
+    .btn-pause {
+      padding: 13px 20px; border: none; border-radius: 8px; font-size: 14px;
+      font-weight: 700; cursor: pointer; transition: background 0.2s;
+      background: #ffa500; color: #000;
+    }
+    .btn-pause:hover { background: #e09000; }
+    .btn-pause.resumir { background: #25D366; }
+    .btn-pause.resumir:hover { background: #1da851; }
+
+    .stats-box {
+      display: flex; gap: 8px; margin-top: 12px;
+    }
+    .stat-item {
+      flex: 1; text-align: center; padding: 10px 8px; border-radius: 8px;
+      font-size: 12px; font-weight: 600;
+    }
+    .stat-item span {
+      display: block; font-size: 22px; font-weight: 700; margin-bottom: 2px;
+    }
+    .stat-success { background: #1a3a2a; color: #25D366; }
+    .stat-fail { background: #3a1a1a; color: #ff5555; }
+    .stat-total { background: #1e2d4a; color: #88aadd; }
+
     @media (max-width: 768px) {
       .layout { flex-direction: column-reverse; }
       .panel-right { width: 100%; }
@@ -186,8 +211,18 @@
         <div class="progress-bar" id="progress-bar"><div class="fill" id="progress-fill"></div></div>
         <div class="progress-text" id="progress-text"></div>
 
-        <button type="submit" class="btn-main" id="btn-enviar">Enviar Mensagens</button>
+        <div class="btn-row">
+          <button type="submit" class="btn-main" id="btn-enviar">Enviar Mensagens</button>
+          <button type="button" class="btn-pause" id="btn-pausar" onclick="togglePausa()" style="display:none;">Pausar</button>
+        </div>
       </form>
+
+      <div class="stats-box" id="stats-box" style="display:none;">
+        <div class="stat-item stat-success"><span id="stat-ok">0</span> Enviados</div>
+        <div class="stat-item stat-fail"><span id="stat-err">0</span> Erros</div>
+        <div class="stat-item stat-total"><span id="stat-total">0</span> Total</div>
+      </div>
+
       <div id="resultados"></div>
     </div>
 
@@ -223,6 +258,11 @@
     const modoInfo = document.getElementById('modo-info');
     const mensagemSection = document.getElementById('mensagem-section');
     let modoAtual = 'manual';
+    let pausado = false;
+    let enviando = false;
+    let abortController = null;
+    let statOk = 0;
+    let statErr = 0;
 
     // --- Templates ---
     function getTemplates() {
@@ -402,6 +442,29 @@
     setInterval(checkStatus, 3000);
     checkStatus();
 
+    // --- Pausa ---
+    function togglePausa() {
+      const btn = document.getElementById('btn-pausar');
+      if (!enviando) return;
+      if (pausado) {
+        pausado = false;
+        btn.textContent = 'Pausar';
+        btn.classList.remove('resumir');
+        progressText.textContent = progressText.textContent.replace(' (PAUSADO)', '');
+      } else {
+        pausado = true;
+        btn.textContent = 'Retomar';
+        btn.classList.add('resumir');
+        progressText.textContent += ' (PAUSADO)';
+      }
+    }
+
+    function updateStats() {
+      document.getElementById('stat-ok').textContent = statOk;
+      document.getElementById('stat-err').textContent = statErr;
+      document.getElementById('stat-total').textContent = statOk + statErr;
+    }
+
     // --- Enviar ---
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
@@ -428,8 +491,17 @@
       const listaNumeros = numeros.split('\n').filter(n => n.trim().length > 0);
       const total = listaNumeros.length;
 
+      // Reset stats
+      statOk = 0; statErr = 0;
+      enviando = true; pausado = false;
+
       btnEnviar.disabled = true;
       btnEnviar.textContent = 'Enviando...';
+      document.getElementById('btn-pausar').style.display = 'block';
+      document.getElementById('btn-pausar').textContent = 'Pausar';
+      document.getElementById('btn-pausar').classList.remove('resumir');
+      document.getElementById('stats-box').style.display = 'flex';
+      updateStats();
       resultadosDiv.innerHTML = '';
       progressBar.style.display = 'block';
       progressText.style.display = 'block';
@@ -437,10 +509,12 @@
       progressText.textContent = `Enviando 0 de ${total}... (intervalo: ${delay}s)`;
 
       try {
+        abortController = new AbortController();
         const res = await fetch('/api/enviar', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ numeros, mensagens, delay, modo })
+          body: JSON.stringify({ numeros, mensagens, delay, modo }),
+          signal: abortController.signal
         });
 
         const reader = res.body.getReader();
@@ -448,6 +522,11 @@
         let buffer = '';
 
         while (true) {
+          // Pausa: espera até retomar
+          while (pausado) {
+            await new Promise(r => setTimeout(r, 500));
+          }
+
           const { done, value } = await reader.read();
           if (done) break;
           buffer += decoder.decode(value, { stream: true });
@@ -462,6 +541,8 @@
                 const pct = Math.round((data.atual / data.total) * 100);
                 progressFill.style.width = pct + '%';
                 progressText.textContent = `Enviando ${data.atual} de ${data.total}... (intervalo: ${delay}s)`;
+                if (data.status === 'enviado') { statOk++; } else { statErr++; }
+                updateStats();
                 const cls = data.status === 'enviado' ? 'enviado' : 'erro';
                 const modeloBadge = modoAtual !== 'manual' && data.modelo
                   ? `<span class="modelo-badge">${data.info || 'Modelo ' + data.modelo}</span>` : '';
@@ -478,11 +559,15 @@
           }
         }
       } catch (err) {
-        resultadosDiv.innerHTML += `<div class="resultado-item erro">Erro: ${err.message}</div>`;
+        if (err.name !== 'AbortError') {
+          resultadosDiv.innerHTML += `<div class="resultado-item erro">Erro: ${err.message}</div>`;
+        }
       }
 
+      enviando = false;
       btnEnviar.disabled = false;
       btnEnviar.textContent = 'Enviar Mensagens';
+      document.getElementById('btn-pausar').style.display = 'none';
     });
   </script>
 </body>
