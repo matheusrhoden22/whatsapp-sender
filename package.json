@@ -1,0 +1,14 @@
+{
+  "name": "whatsapp-sender",
+  "version": "1.0.0",
+  "description": "Enviar mensagens WhatsApp para clientes",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "whatsapp-web.js": "^1.26.0",
+    "qrcode": "^1.5.3"
+  }
+}

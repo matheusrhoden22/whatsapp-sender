@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WhatsApp Sender</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Segoe UI', Arial, sans-serif;
+      background: #0a1628;
+      color: #e0e0e0;
+      min-height: 100vh;
+      padding: 20px;
+    }
+    h1 { text-align: center; color: #25D366; margin-bottom: 4px; font-size: 26px; }
+    .subtitle { text-align: center; color: #888; margin-bottom: 24px; font-size: 14px; }
+    .layout { display: flex; gap: 20px; max-width: 1100px; margin: 0 auto; }
+    .panel {
+      background: #111b2e; border-radius: 14px; padding: 24px;
+      box-shadow: 0 6px 24px rgba(0,0,0,0.3);
+    }
+    .panel-left { flex: 1; min-width: 0; }
+    .panel-right { width: 360px; flex-shrink: 0; }
+    .panel h2 {
+      color: #25D366; font-size: 16px; margin-bottom: 14px;
+      border-bottom: 1px solid #1e2d4a; padding-bottom: 8px;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .status {
+      text-align: center; padding: 10px; border-radius: 8px; font-weight: 600;
+      max-width: 1100px; margin: 0 auto 20px;
+    }
+    .status.conectado { background: #1a3a2a; color: #25D366; }
+    .status.aguardando { background: #3a2a1a; color: #ffa500; }
+    #qr-section { text-align: center; max-width: 400px; margin: 0 auto; }
+    #qr-section img { border-radius: 12px; max-width: 250px; }
+    label { display: block; margin-bottom: 5px; font-weight: 600; color: #ccc; font-size: 13px; }
+    textarea, input[type="number"], input[type="text"] {
+      width: 100%; padding: 10px; border: 1px solid #2a3a5c; border-radius: 8px;
+      background: #0a1628; color: #e0e0e0; font-size: 14px; resize: vertical; margin-bottom: 12px;
+    }
+    textarea:focus, input:focus { outline: none; border-color: #25D366; }
+    #numeros { height: 100px; }
+    #mensagem { height: 130px; }
+    .hint { font-size: 11px; color: #555; margin-top: -8px; margin-bottom: 12px; }
+    .delay-row { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
+    .delay-row label { margin: 0; white-space: nowrap; }
+    .delay-row input[type="number"] { width: 80px; margin: 0; text-align: center; }
+    .delay-row span { color: #888; font-size: 13px; }
+
+    button.btn-main {
+      width: 100%; padding: 13px; background: #25D366; color: #000; border: none;
+      border-radius: 8px; font-size: 15px; font-weight: 700; cursor: pointer;
+    }
+    button.btn-main:hover { background: #1da851; }
+    button.btn-main:disabled { background: #555; cursor: not-allowed; color: #999; }
+
+    /* Modo buttons */
+    .modo-btn {
+      flex: 1; padding: 8px; border: 1px solid #2a3a5c; background: #0a1628;
+      color: #888; border-radius: 6px; font-size: 12px; font-weight: 600;
+      cursor: pointer; transition: all 0.2s;
+    }
+    .modo-btn:hover { border-color: #25D366; color: #ccc; }
+    .modo-btn.active { background: #1a3a2a; border-color: #25D366; color: #25D366; }
+    .modo-info {
+      font-size: 11px; color: #25D366; margin-bottom: 12px; padding: 6px 10px;
+      background: #1a3a2a; border-radius: 6px; display: none;
+    }
+
+    /* Templates */
+    .template-list { max-height: 500px; overflow-y: auto; }
+    .template-card {
+      background: #0a1628; border: 1px solid #2a3a5c; border-radius: 8px;
+      padding: 10px 12px; margin-bottom: 8px; cursor: pointer;
+      transition: border-color 0.2s, background 0.2s; font-size: 13px; line-height: 1.4;
+      position: relative;
+    }
+    .template-card:hover { border-color: #25D366; background: #132040; }
+    .template-card .tag {
+      display: inline-block; background: #1a3a2a; color: #25D366;
+      font-size: 10px; padding: 2px 8px; border-radius: 10px; margin-bottom: 6px; font-weight: 700;
+    }
+    .template-card p { color: #ccc; margin: 0; }
+    .template-card .btn-delete {
+      position: absolute; top: 8px; right: 8px; background: none; border: none;
+      color: #ff5555; font-size: 16px; cursor: pointer; padding: 0 4px; opacity: 0;
+      transition: opacity 0.2s;
+    }
+    .template-card:hover .btn-delete { opacity: 1; }
+
+    .add-template {
+      background: #0a1628; border: 1px dashed #2a3a5c; border-radius: 8px;
+      padding: 12px; margin-top: 10px;
+    }
+    .add-template input, .add-template textarea { margin-bottom: 8px; font-size: 13px; padding: 8px; }
+    .add-template textarea { height: 70px; }
+    .btn-add {
+      width: 100%; padding: 8px; background: #25D366; color: #000; border: none;
+      border-radius: 6px; font-size: 13px; font-weight: 700; cursor: pointer;
+    }
+    .btn-add:hover { background: #1da851; }
+    .btn-toggle-add {
+      background: none; border: 1px solid #25D366; color: #25D366; padding: 4px 12px;
+      border-radius: 6px; font-size: 12px; cursor: pointer; font-weight: 600;
+    }
+    .btn-toggle-add:hover { background: #1a3a2a; }
+    .empty-msg { color: #555; font-size: 13px; text-align: center; padding: 20px 0; }
+
+    /* Resultados */
+    #resultados { margin-top: 16px; max-height: 200px; overflow-y: auto; }
+    .resultado-item { padding: 7px 10px; border-radius: 6px; margin-bottom: 3px; font-size: 12px; }
+    .resultado-item.enviado { background: #1a3a2a; color: #25D366; }
+    .resultado-item.erro { background: #3a1a1a; color: #ff5555; }
+    .modelo-badge {
+      display: inline-block; background: #1e2d4a; color: #88aadd; font-size: 10px;
+      padding: 1px 6px; border-radius: 4px; margin-left: 6px;
+    }
+
+    .progress-bar {
+      width: 100%; height: 6px; background: #1e2d4a; border-radius: 3px;
+      margin-bottom: 10px; display: none;
+    }
+    .progress-bar .fill {
+      height: 100%; background: #25D366; border-radius: 3px;
+      transition: width 0.3s; width: 0%;
+    }
+    .progress-text { font-size: 12px; color: #888; text-align: center; margin-bottom: 8px; display: none; }
+
+    @media (max-width: 768px) {
+      .layout { flex-direction: column-reverse; }
+      .panel-right { width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <h1>WhatsApp Sender</h1>
+  <p class="subtitle">Envie mensagens para seus clientes</p>
+
+  <div id="status-bar" class="status aguardando">Verificando conexao...</div>
+
+  <div id="qr-section" style="display:none;">
+    <p style="margin-bottom:10px; color:#ccc;">Escaneie o QR Code com seu WhatsApp:</p>
+    <img id="qr-img" src="" alt="QR Code">
+  </div>
+
+  <div id="main-content" class="layout" style="display:none;">
+    <div class="panel panel-left">
+      <h2>Enviar Mensagens</h2>
+      <form id="form-enviar">
+        <label for="numeros">Numeros (um por linha)</label>
+        <textarea id="numeros" placeholder="44999998888&#10;44988887777&#10;5544977776666"></textarea>
+        <p class="hint">DDD + numero. Com ou sem 55 na frente.</p>
+
+        <!-- Modo de envio -->
+        <label style="margin-bottom:8px;">Modo de envio</label>
+        <div style="display:flex; gap:6px; margin-bottom:14px;">
+          <button type="button" class="modo-btn active" id="modo-manual" onclick="setModo('manual')">Manual</button>
+          <button type="button" class="modo-btn" id="modo-rotacao" onclick="setModo('rotacao')">Rotacao</button>
+          <button type="button" class="modo-btn" id="modo-sequencial" onclick="setModo('sequencial')">Sequencial</button>
+        </div>
+        <div class="modo-info" id="modo-info"></div>
+
+        <div id="mensagem-section">
+          <label for="mensagem">Mensagem</label>
+          <textarea id="mensagem" placeholder="Escreva sua mensagem ou escolha um modelo ao lado..."></textarea>
+        </div>
+
+        <div class="delay-row">
+          <label for="delay">Intervalo:</label>
+          <input type="number" id="delay" value="30" min="5" max="120">
+          <span>segundos entre cada mensagem</span>
+        </div>
+
+        <div class="progress-bar" id="progress-bar"><div class="fill" id="progress-fill"></div></div>
+        <div class="progress-text" id="progress-text"></div>
+
+        <button type="submit" class="btn-main" id="btn-enviar">Enviar Mensagens</button>
+      </form>
+      <div id="resultados"></div>
+    </div>
+
+    <div class="panel panel-right">
+      <h2>
+        Meus Modelos
+        <button class="btn-toggle-add" onclick="toggleAddForm()">+ Novo</button>
+      </h2>
+      <div class="template-list" id="template-list"></div>
+      <div class="add-template" id="add-form" style="display:none;">
+        <input type="text" id="tpl-nome" placeholder="Nome do modelo (ex: Saudacao)">
+        <textarea id="tpl-texto" placeholder="Texto da mensagem..."></textarea>
+        <button class="btn-add" onclick="salvarTemplate()">Salvar Modelo</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    console.log('WhatsApp Sender carregado');
+    const statusBar = document.getElementById('status-bar');
+    const qrSection = document.getElementById('qr-section');
+    const qrImg = document.getElementById('qr-img');
+    const mainContent = document.getElementById('main-content');
+    const form = document.getElementById('form-enviar');
+    const btnEnviar = document.getElementById('btn-enviar');
+    const resultadosDiv = document.getElementById('resultados');
+    const progressBar = document.getElementById('progress-bar');
+    const progressFill = document.getElementById('progress-fill');
+    const progressText = document.getElementById('progress-text');
+    const templateList = document.getElementById('template-list');
+    const addForm = document.getElementById('add-form');
+    const modoInfo = document.getElementById('modo-info');
+    const mensagemSection = document.getElementById('mensagem-section');
+    let modoAtual = 'manual';
+
+    // --- Templates ---
+    function getTemplates() {
+      return JSON.parse(localStorage.getItem('wpp-templates') || '[]');
+    }
+    function saveTemplates(list) {
+      localStorage.setItem('wpp-templates', JSON.stringify(list));
+    }
+    function renderTemplates() {
+      const templates = getTemplates();
+      if (templates.length === 0) {
+        templateList.innerHTML = '<p class="empty-msg">Nenhum modelo criado ainda.<br>Clique em "+ Novo" para criar.</p>';
+        // templates updated
+        return;
+      }
+      templateList.innerHTML = templates.map((t, i) => `
+        <div class="template-card" onclick="useTemplate(${i})">
+          <button class="btn-delete" onclick="event.stopPropagation(); deletarTemplate(${i})" title="Excluir">x</button>
+          <span class="tag">${escapeHtml(t.nome)}</span>
+          <p>${escapeHtml(t.texto)}</p>
+        </div>
+      `).join('');
+    }
+    function escapeHtml(str) {
+      return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+    function useTemplate(index) {
+      const templates = getTemplates();
+      if (templates[index]) {
+        document.getElementById('mensagem').value = templates[index].texto;
+      }
+    }
+    function toggleAddForm() {
+      addForm.style.display = addForm.style.display === 'none' ? 'block' : 'none';
+    }
+    function salvarTemplate() {
+      const nome = document.getElementById('tpl-nome').value.trim();
+      const texto = document.getElementById('tpl-texto').value.trim();
+      if (!nome || !texto) { alert('Preencha o nome e o texto do modelo!'); return; }
+      const templates = getTemplates();
+      templates.push({ nome, texto });
+      saveTemplates(templates);
+      renderTemplates();
+      document.getElementById('tpl-nome').value = '';
+      document.getElementById('tpl-texto').value = '';
+      addForm.style.display = 'none';
+    }
+    function deletarTemplate(index) {
+      const templates = getTemplates();
+      templates.splice(index, 1);
+      saveTemplates(templates);
+      renderTemplates();
+    }
+
+    // --- Modos ---
+    function setModo(modo) {
+      const templates = getTemplates();
+
+      if ((modo === 'rotacao' || modo === 'sequencial') && templates.length < 2) {
+        alert('Crie pelo menos 2 modelos para usar esse modo!');
+        return;
+      }
+
+      modoAtual = modo;
+      document.querySelectorAll('.modo-btn').forEach(b => b.classList.remove('active'));
+      document.getElementById('modo-' + modo).classList.add('active');
+
+      if (modo === 'manual') {
+        mensagemSection.style.display = 'block';
+        modoInfo.style.display = 'none';
+      } else {
+        mensagemSection.style.display = 'none';
+        const nomes = templates.map(t => t.nome).join(' → ');
+        if (modo === 'rotacao') {
+          modoInfo.innerHTML = `<strong>Rotacao:</strong> 1 mensagem por cliente, alternando entre modelos<br><span style="font-size:10px;color:#88aadd;">${nomes} → repete...</span>`;
+        } else {
+          modoInfo.innerHTML = `<strong>Sequencial:</strong> cada cliente recebe TODAS as mensagens em ordem<br><span style="font-size:10px;color:#88aadd;">${nomes}</span>`;
+        }
+        modoInfo.style.display = 'block';
+      }
+    }
+
+    renderTemplates();
+
+    // --- Status ---
+    function checkStatus() {
+      console.log('Verificando status...');
+      fetch('http://localhost:3000/api/status')
+        .then(function(r) { console.log('Response:', r.status); return r.json(); })
+        .then(function(data) {
+          console.log('Data:', data.ready, !!data.qr);
+          if (data.ready) {
+            statusBar.textContent = 'Conectado ao WhatsApp';
+            statusBar.className = 'status conectado';
+            qrSection.style.display = 'none';
+            mainContent.style.display = 'flex';
+          } else if (data.qr) {
+            statusBar.textContent = 'Aguardando leitura do QR Code...';
+            statusBar.className = 'status aguardando';
+            qrSection.style.display = 'block';
+            qrImg.src = data.qr;
+            mainContent.style.display = 'none';
+          } else {
+            statusBar.textContent = 'Iniciando... aguarde';
+            statusBar.className = 'status aguardando';
+          }
+        })
+        .catch(function(err) { console.error('ERRO:', err); statusBar.textContent = 'Erro: ' + err.message; });
+    }
+    setInterval(checkStatus, 3000);
+    checkStatus();
+
+    // --- Enviar ---
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const numeros = document.getElementById('numeros').value.trim();
+      const delay = parseInt(document.getElementById('delay').value) || 30;
+      const templates = getTemplates();
+
+      let mensagens = [];
+      let modo = 'rotacao';
+
+      if (modoAtual === 'manual') {
+        const msg = document.getElementById('mensagem').value.trim();
+        if (!msg) { alert('Preencha a mensagem!'); return; }
+        mensagens = [msg];
+      } else if (modoAtual === 'rotacao') {
+        if (templates.length < 2) { alert('Crie pelo menos 2 modelos!'); return; }
+        mensagens = templates.map(t => t.texto);
+      } else {
+        if (templates.length < 2) { alert('Crie pelo menos 2 modelos!'); return; }
+        mensagens = templates.map(t => t.texto);
+        modo = 'sequencial';
+      }
+
+      if (!numeros) { alert('Preencha os numeros!'); return; }
+
+      const listaNumeros = numeros.split('\n').filter(n => n.trim().length > 0);
+      const total = listaNumeros.length;
+
+      btnEnviar.disabled = true;
+      btnEnviar.textContent = 'Enviando...';
+      resultadosDiv.innerHTML = '';
+      progressBar.style.display = 'block';
+      progressText.style.display = 'block';
+      progressFill.style.width = '0%';
+      progressText.textContent = `Enviando 0 de ${total}... (intervalo: ${delay}s)`;
+
+      try {
+        const res = await fetch('/api/enviar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ numeros, mensagens, delay, modo })
+        });
+
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop();
+
+          for (const line of lines) {
+            if (!line.trim()) continue;
+            try {
+              const data = JSON.parse(line);
+              if (data.tipo === 'progresso') {
+                const pct = Math.round((data.atual / data.total) * 100);
+                progressFill.style.width = pct + '%';
+                progressText.textContent = `Enviando ${data.atual} de ${data.total}... (intervalo: ${delay}s)`;
+                const cls = data.status === 'enviado' ? 'enviado' : 'erro';
+                const modeloBadge = modoAtual !== 'manual' && data.modelo
+                  ? `<span class="modelo-badge">${data.info || 'Modelo ' + data.modelo}</span>` : '';
+                const msg = data.status === 'enviado'
+                  ? `${data.numero} - Enviado ${modeloBadge}`
+                  : `${data.numero} - Erro: ${data.detalhe}`;
+                resultadosDiv.innerHTML += `<div class="resultado-item ${cls}">${msg}</div>`;
+                resultadosDiv.scrollTop = resultadosDiv.scrollHeight;
+              } else if (data.tipo === 'fim') {
+                progressFill.style.width = '100%';
+                progressText.textContent = `Concluido! ${data.enviados} de ${data.total} enviados.`;
+              }
+            } catch {}
+          }
+        }
+      } catch (err) {
+        resultadosDiv.innerHTML += `<div class="resultado-item erro">Erro: ${err.message}</div>`;
+      }
+
+      btnEnviar.disabled = false;
+      btnEnviar.textContent = 'Enviar Mensagens';
+    });
+  </script>
+</body>
+</html>
