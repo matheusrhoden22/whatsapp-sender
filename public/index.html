@@ -85,6 +85,15 @@
     .template-card p { color: #ccc; margin: 0; }
     .template-card .card-actions { opacity: 0; transition: opacity 0.2s; }
     .template-card:hover .card-actions { opacity: 1; }
+    .template-card.selected { border-color: #25D366; background: #132040; }
+    .tpl-checkbox {
+      position: absolute; top: 10px; left: 10px; width: 16px; height: 16px;
+      accent-color: #25D366; cursor: pointer;
+    }
+    .tpl-content { margin-left: 24px; }
+    .selected-count {
+      font-size: 11px; color: #888; margin-bottom: 10px; text-align: center;
+    }
     .template-card .btn-delete, .template-card .btn-edit {
       background: none; border: none; font-size: 15px; cursor: pointer; padding: 0 4px;
     }
@@ -187,6 +196,7 @@
         Meus Modelos
         <button class="btn-toggle-add" onclick="toggleAddForm()">+ Novo</button>
       </h2>
+      <div class="selected-count" id="selected-count" style="display:none;"></div>
       <div class="template-list" id="template-list"></div>
       <div class="add-template" id="add-form" style="display:none;">
         <input type="text" id="tpl-nome" placeholder="Nome do modelo (ex: Saudacao)">
@@ -221,6 +231,39 @@
     function saveTemplates(list) {
       localStorage.setItem('wpp-templates', JSON.stringify(list));
     }
+    function getSelectedTemplates() {
+      return JSON.parse(localStorage.getItem('wpp-selected') || '[]');
+    }
+    function saveSelectedTemplates(list) {
+      localStorage.setItem('wpp-selected', JSON.stringify(list));
+    }
+    function toggleSelect(index) {
+      let selected = getSelectedTemplates();
+      if (selected.includes(index)) {
+        selected = selected.filter(i => i !== index);
+      } else {
+        selected.push(index);
+        selected.sort((a, b) => a - b);
+      }
+      saveSelectedTemplates(selected);
+      renderTemplates();
+    }
+    function updateSelectedCount() {
+      const selected = getSelectedTemplates();
+      const templates = getTemplates();
+      const valid = selected.filter(i => i < templates.length);
+      if (valid.length !== selected.length) { saveSelectedTemplates(valid); }
+      const countEl = document.getElementById('selected-count');
+      if (countEl) {
+        if (valid.length > 0) {
+          const nomes = valid.map(i => templates[i].nome).join(', ');
+          countEl.innerHTML = `<strong>${valid.length}</strong> selecionado(s): ${nomes}`;
+          countEl.style.display = 'block';
+        } else {
+          countEl.style.display = 'none';
+        }
+      }
+    }
     function renderTemplates() {
       const templates = getTemplates();
       if (templates.length === 0) {
@@ -228,16 +271,23 @@
         // templates updated
         return;
       }
-      templateList.innerHTML = templates.map((t, i) => `
-        <div class="template-card" onclick="useTemplate(${i})" id="tpl-card-${i}">
+      const selected = getSelectedTemplates();
+      templateList.innerHTML = templates.map((t, i) => {
+        const isSelected = selected.includes(i);
+        return `
+        <div class="template-card ${isSelected ? 'selected' : ''}" onclick="useTemplate(${i})" id="tpl-card-${i}">
+          <input type="checkbox" class="tpl-checkbox" ${isSelected ? 'checked' : ''} onclick="event.stopPropagation(); toggleSelect(${i})" title="Selecionar para rotacao/sequencial">
           <div style="position:absolute;top:8px;right:8px;display:flex;gap:6px;" class="card-actions">
             <button class="btn-edit" onclick="event.stopPropagation(); editarTemplate(${i})" title="Editar">&#9998;</button>
             <button class="btn-delete" onclick="event.stopPropagation(); deletarTemplate(${i})" title="Excluir">x</button>
           </div>
-          <span class="tag">${escapeHtml(t.nome)}</span>
-          <p>${escapeHtml(t.texto)}</p>
-        </div>
-      `).join('');
+          <div class="tpl-content">
+            <span class="tag">${escapeHtml(t.nome)}</span>
+            <p>${escapeHtml(t.texto)}</p>
+          </div>
+        </div>`;
+      }).join('');
+      updateSelectedCount();
     }
     function escapeHtml(str) {
       return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
@@ -296,9 +346,10 @@
     // --- Modos ---
     function setModo(modo) {
       const templates = getTemplates();
+      const selected = getSelectedTemplates().filter(i => i < templates.length);
 
-      if ((modo === 'rotacao' || modo === 'sequencial') && templates.length < 2) {
-        alert('Crie pelo menos 2 modelos para usar esse modo!');
+      if ((modo === 'rotacao' || modo === 'sequencial') && selected.length < 2) {
+        alert('Selecione pelo menos 2 modelos no painel direito (checkbox) para usar esse modo!');
         return;
       }
 
@@ -311,11 +362,11 @@
         modoInfo.style.display = 'none';
       } else {
         mensagemSection.style.display = 'none';
-        const nomes = templates.map(t => t.nome).join(' → ');
+        const nomes = selected.map(i => templates[i].nome).join(' → ');
         if (modo === 'rotacao') {
-          modoInfo.innerHTML = `<strong>Rotacao:</strong> 1 mensagem por cliente, alternando entre modelos<br><span style="font-size:10px;color:#88aadd;">${nomes} → repete...</span>`;
+          modoInfo.innerHTML = `<strong>Rotacao:</strong> 1 mensagem por cliente, alternando entre os <strong>${selected.length}</strong> modelos selecionados<br><span style="font-size:10px;color:#88aadd;">${nomes} → repete...</span>`;
         } else {
-          modoInfo.innerHTML = `<strong>Sequencial:</strong> cada cliente recebe TODAS as mensagens em ordem<br><span style="font-size:10px;color:#88aadd;">${nomes}</span>`;
+          modoInfo.innerHTML = `<strong>Sequencial:</strong> cada cliente recebe as <strong>${selected.length}</strong> mensagens selecionadas em ordem<br><span style="font-size:10px;color:#88aadd;">${nomes}</span>`;
         }
         modoInfo.style.display = 'block';
       }
@@ -365,13 +416,11 @@
         const msg = document.getElementById('mensagem').value.trim();
         if (!msg) { alert('Preencha a mensagem!'); return; }
         mensagens = [msg];
-      } else if (modoAtual === 'rotacao') {
-        if (templates.length < 2) { alert('Crie pelo menos 2 modelos!'); return; }
-        mensagens = templates.map(t => t.texto);
       } else {
-        if (templates.length < 2) { alert('Crie pelo menos 2 modelos!'); return; }
-        mensagens = templates.map(t => t.texto);
-        modo = 'sequencial';
+        const selected = getSelectedTemplates().filter(i => i < templates.length);
+        if (selected.length < 2) { alert('Selecione pelo menos 2 modelos no painel direito!'); return; }
+        mensagens = selected.map(i => templates[i].texto);
+        if (modoAtual === 'sequencial') modo = 'sequencial';
       }
 
       if (!numeros) { alert('Preencha os numeros!'); return; }
