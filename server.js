@@ -68,7 +68,13 @@ app.post('/api/enviar', async (req, res) => {
 
   const { numeros, mensagens, delay, modo } = req.body;
   // modo: 'rotacao' (1 msg por cliente alternando) ou 'sequencial' (todas msgs para cada cliente)
-  const delayMs = Math.max(5, Math.min(120, delay || 15)) * 1000;
+  const delayBase = Math.max(5, Math.min(120, delay || 15)) * 1000;
+  // Variação aleatória de ±30% do tempo base
+  function getDelay() {
+    const min = Math.round(delayBase * 0.7);
+    const max = Math.round(delayBase * 1.3);
+    return min + Math.floor(Math.random() * (max - min));
+  }
 
   if (!numeros || !mensagens || mensagens.length === 0) {
     return res.status(400).json({ error: 'Números e mensagens são obrigatórios.' });
@@ -188,7 +194,9 @@ app.post('/api/enviar', async (req, res) => {
 
     // Delay entre clientes (com verificação de pausa)
     if (i < lista.length - 1) {
-      await new Promise(resolve => setTimeout(resolve, delayMs));
+      const waitTime = getDelay();
+      console.log(`Aguardando ${Math.round(waitTime/1000)}s...`);
+      await new Promise(resolve => setTimeout(resolve, waitTime));
       // Espera enquanto pausado
       while (pausado && !cancelado) {
         await new Promise(resolve => setTimeout(resolve, 500));
